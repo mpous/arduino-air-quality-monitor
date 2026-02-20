@@ -1,0 +1,5 @@
+name: Air Quality Monitor
+description: "Real-time air quality monitoring with DPS310 & SCD-30. Visualises CO2, temperature, humidity and pressure, uploads labelled time-series to Edge Impulse, and runs sensor-fusion inference."
+icon: "🌬️"
+ports: [5001]
+bricks: []

@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Air Quality Monitor</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ── Design tokens — dark (default) ─────────────────────────────── */
+    :root {
+      --bg:       #0f1117;
+      --card:     #1a1d27;
+      --border:   #2a2d3a;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --green:    #22c55e;
+      --red:      #ef4444;
+      --amber:    #f59e0b;
+      --grid:     #1e2130;
+      --tick:     #64748b;
+      --tt-bg:    #1a1d27;
+      --tt-title: #64748b;
+      --tt-body:  #e2e8f0;
+      --tt-bdr:   #2a2d3a;
+      --card-hdr: rgba(255,255,255,0.03);
+      --logo-filter: none;          /* EI logo is white — fine on dark */
+      --theme-icon: "☀️";
+    }
+
+    /* ── Design tokens — light ───────────────────────────────────────── */
+    [data-theme="light"] {
+      --bg:       #f1f5f9;
+      --card:     #ffffff;
+      --border:   #e2e8f0;
+      --text:     #0f172a;
+      --muted:    #64748b;
+      --green:    #16a34a;
+      --red:      #dc2626;
+      --amber:    #d97706;
+      --grid:     #f1f5f9;
+      --tick:     #94a3b8;
+      --tt-bg:    #ffffff;
+      --tt-title: #64748b;
+      --tt-body:  #0f172a;
+      --tt-bdr:   #e2e8f0;
+      --card-hdr: rgba(0,0,0,0.02);
+      --logo-filter: brightness(0) saturate(100%); /* turn white logo black */
+      --theme-icon: "🌙";
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", system-ui, sans-serif;
+      font-size: 0.875rem;
+      min-height: 100vh;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* ── Navbar ─────────────────────────────────────────────────────── */
+    .topbar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0.55rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      flex-wrap: wrap;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .ei-logo {
+      height: 22px;
+      width: auto;
+      filter: var(--logo-filter);
+      transition: filter 0.2s;
+      flex-shrink: 0;
+    }
+
+    .topbar-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .topbar-title {
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .topbar-title span { color: var(--green); }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--border);
+      color: var(--muted);
+      transition: background 0.3s, color 0.3s;
+      white-space: nowrap;
+    }
+    .badge-pill.ok   { background: #14532d; color: #22c55e; }
+    .badge-pill.err  { background: #7f1d1d; color: #ef4444; }
+    .badge-pill.warn { background: #451a03; color: #f59e0b; }
+    [data-theme="light"] .badge-pill.ok   { background: #dcfce7; color: #16a34a; }
+    [data-theme="light"] .badge-pill.err  { background: #fee2e2; color: #dc2626; }
+    [data-theme="light"] .badge-pill.warn { background: #fef3c7; color: #d97706; }
+    .badge-pill .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    /* ── Theme toggle ────────────────────────────────────────────────── */
+    .btn-theme {
+      background: var(--border);
+      border: none;
+      border-radius: 8px;
+      padding: 0.3rem 0.55rem;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-theme:hover { opacity: 0.8; }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      padding: 1rem;
+    }
+    @media (max-width: 900px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      padding: 0 1rem 1rem;
+    }
+    @media (max-width: 900px) {
+      .bottom-row { grid-template-columns: 1fr; }
+    }
+
+    /* ── Cards ──────────────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--card-hdr);
+    }
+    .card-title {
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .card-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .card-unit { font-size: 0.75rem; color: var(--muted); margin-left: 2px; }
+    .card-body { padding: 0.75rem; }
+
+    /* ── Charts ─────────────────────────────────────────────────────── */
+    .chart-wrap { position: relative; height: 180px; }
+
+    /* ── Inference panel ────────────────────────────────────────────── */
+    .infer-row { display: flex; flex-direction: column; gap: 0.5rem; }
+    .infer-class { display: flex; align-items: center; gap: 0.5rem; }
+    .infer-class-name {
+      width: 90px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .infer-bar-bg {
+      flex: 1;
+      height: 18px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .infer-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+      min-width: 2px;
+    }
+    .infer-pct {
+      width: 38px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .anomaly-score {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--border);
+      border-radius: 8px;
+      margin-top: 0.5rem;
+      transition: background 0.2s;
+    }
+    .anomaly-label { color: var(--muted); font-size: 0.78rem; }
+    .anomaly-val   { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .infer-placeholder {
+      color: var(--muted);
+      text-align: center;
+      padding: 2rem 0;
+      font-size: 0.85rem;
+    }
+    .infer-ts { font-size: 0.7rem; color: var(--muted); }
+
+    /* ── Controls ───────────────────────────────────────────────────── */
+    .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .btn-rec {
+      width: 100%;
+      padding: 0.55rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn-rec:active { transform: scale(0.97); }
+    .btn-rec.start { background: var(--green); color: #fff; }
+    .btn-rec.stop  { background: var(--red);   color: #fff; }
+    .btn-rec.start:hover { filter: brightness(0.9); }
+    .btn-rec.stop:hover  { filter: brightness(0.9); }
+
+    .btn-action {
+      flex: 1;
+      padding: 0.45rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.2s, color 0.2s;
+    }
+    .btn-action:hover    { background: var(--border); }
+    .btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .action-row { display: flex; gap: 0.4rem; }
+
+    .rec-counter { font-size: 0.72rem; color: var(--muted); text-align: center; }
+    .rec-counter span { color: var(--amber); font-weight: 600; }
+
+    .form-control-dark {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.35rem 0.6rem;
+      font-size: 0.82rem;
+      width: 100%;
+      outline: none;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .form-control-dark:focus { border-color: #4f6ef7; }
+
+    .form-label-sm {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 2px;
+      display: block;
+    }
+
+    hr.dark { border-color: var(--border); margin: 0.6rem 0; }
+
+    /* ── Toast ──────────────────────────────────────────────────────── */
+    #toast-area {
+      position: fixed;
+      bottom: 1.2rem;
+      right: 1.2rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .toast-item {
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      opacity: 0;
+      animation: fadeInOut 3.5s ease forwards;
+    }
+    .toast-item.ok  { background: #14532d; color: #22c55e; border: 1px solid #166534; }
+    .toast-item.err { background: #7f1d1d; color: #ef4444; border: 1px solid #991b1b; }
+    [data-theme="light"] .toast-item.ok  { background: #dcfce7; color: #16a34a; border-color: #bbf7d0; }
+    [data-theme="light"] .toast-item.err { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+
+    @keyframes fadeInOut {
+      0%   { opacity: 0; transform: translateY(8px); }
+      15%  { opacity: 1; transform: translateY(0);   }
+      75%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ── Pulse animation ─────────────────────────────────────────────── */
+    .pulse { animation: pulse 1s infinite; }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ── Top bar ─────────────────────────────────────────────────────────────── -->
+<div class="topbar">
+
+  <!-- Edge Impulse logo -->
+  <img src="https://cdn.prod.website-files.com/618cdeef45d18e4ef2fd85f3/618e33d89badebdfe7c5897a_Logo%20(2).svg"
+       alt="Edge Impulse" class="ei-logo" />
+
+  <div class="topbar-divider"></div>
+
+  <span class="topbar-title">🌬️ Air Quality <span>Monitor</span></span>
+
+  <span id="badge-bridge" class="badge-pill">
+    <span class="dot"></span> Bridge
+  </span>
+  <span id="badge-model" class="badge-pill">
+    <span class="dot"></span> Model
+  </span>
+  <span id="badge-rec" class="badge-pill" style="display:none">
+    <span class="dot pulse"></span> Recording
+  </span>
+
+  <div class="topbar-spacer"></div>
+
+  <!-- Theme toggle -->
+  <button class="btn-theme" id="btn-theme" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
+
+  <button class="btn-action" style="width:auto;padding:0.3rem 0.8rem;flex:none"
+          onclick="showConfigModal()">
+    <i class="bi bi-gear"></i> Config
+  </button>
+</div>
+
+<!-- ── Sensor charts (2 × 2 grid) ─────────────────────────────────────────── -->
+<div class="main-grid">
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">CO₂</span>
+      <span><span class="card-value" id="val-co2">—</span><span class="card-unit">ppm</span></span>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap"><canvas id="chart-co2"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Temperature</span>
+      <span><span class="card-value" id="val-temperature">—</span><span class="card-unit">°C</span></span>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap"><canvas id="chart-temperature"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Humidity</span>
+      <span><span class="card-value" id="val-humidity">—</span><span class="card-unit">%RH</span></span>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap"><canvas id="chart-humidity"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Pressure</span>
+      <span><span class="card-value" id="val-pressure">—</span><span class="card-unit">hPa</span></span>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap"><canvas id="chart-pressure"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Bottom row ─────────────────────────────────────────────────────────── -->
+<div class="bottom-row">
+
+  <!-- Inference results -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-cpu"></i> Inference Result</span>
+      <span id="infer-ts" class="infer-ts">—</span>
+    </div>
+    <div class="card-body">
+      <div id="infer-content" class="infer-row">
+        <div class="infer-placeholder">
+          <i class="bi bi-box-arrow-in-down" style="font-size:1.5rem;display:block;margin-bottom:6px"></i>
+          Drop a <strong>model.eim</strong> into <code>models/</code> and click <em>Run Inference</em>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-sliders"></i> Controls</span>
+    </div>
+    <div class="card-body control-group">
+
+      <div>
+        <label class="form-label-sm">Sample label</label>
+        <input id="inp-label" type="text" class="form-control-dark"
+               placeholder="e.g. clean_air, pollution…" value="idle" />
+      </div>
+
+      <button id="btn-rec" class="btn-rec start" onclick="toggleRecord()">
+        <i class="bi bi-record-circle"></i> Start Recording
+      </button>
+      <div class="rec-counter">
+        Buffered: <span id="rec-count">0</span> samples
+      </div>
+
+      <hr class="dark" />
+
+      <div class="action-row">
+        <button class="btn-action" onclick="doUpload()">
+          <i class="bi bi-cloud-upload"></i> Upload to EI
+        </button>
+        <button class="btn-action" id="btn-infer" onclick="doInfer()">
+          <i class="bi bi-lightning-charge"></i> Run Inference
+        </button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <input type="checkbox" id="chk-auto" class="form-check-input"
+               onchange="toggleAutoInfer(this.checked)" style="cursor:pointer" />
+        <label for="chk-auto" style="font-size:0.78rem;cursor:pointer;color:var(--muted)">
+          Auto-infer on every new reading
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Config modal ───────────────────────────────────────────────────────── -->
+<div id="cfg-modal" style="display:none;position:fixed;inset:0;z-index:1000;
+     background:rgba(0,0,0,0.6);align-items:center;justify-content:center">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;
+              padding:1.5rem;width:min(420px,90vw);transition:background 0.2s,border-color 0.2s">
+    <h6 style="margin-bottom:1rem;font-weight:700">⚙️ Configuration</h6>
+
+    <label class="form-label-sm">Edge Impulse API Key</label>
+    <input id="cfg-apikey" type="password" class="form-control-dark" placeholder="ei_…" style="margin-bottom:0.75rem" />
+
+    <label class="form-label-sm">Edge Impulse Project ID</label>
+    <input id="cfg-project" type="text" class="form-control-dark" placeholder="12345" style="margin-bottom:0.75rem" />
+
+    <label class="form-label-sm">Sampling interval (ms)</label>
+    <input id="cfg-interval" type="number" class="form-control-dark" value="2000" style="margin-bottom:0.75rem" />
+
+    <label class="form-label-sm">Inference window (ms)</label>
+    <input id="cfg-window" type="number" class="form-control-dark" value="10000" style="margin-bottom:1rem" />
+
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+      <button class="btn-action" style="width:auto;padding:0.4rem 1rem;flex:none"
+              onclick="document.getElementById('cfg-modal').style.display='none'">Cancel</button>
+      <button class="btn-action" style="width:auto;padding:0.4rem 1rem;flex:none;background:#1e3a8a;border-color:#1e40af;color:#fff"
+              onclick="saveConfig()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast area ─────────────────────────────────────────────────────────── -->
+<div id="toast-area"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// Theme
+// ═══════════════════════════════════════════════════════════════════
+const THEME_KEY = 'aqm-theme';
+
+function currentTheme() {
+  return document.documentElement.getAttribute('data-theme') || 'dark';
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_KEY, theme);
+  document.getElementById('btn-theme').textContent = theme === 'dark' ? '☀️' : '🌙';
+  updateChartsTheme();
+}
+
+function toggleTheme() {
+  applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+}
+
+// Restore saved preference (default: dark)
+applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+
+// ═══════════════════════════════════════════════════════════════════
+// Chart theme colours (read from CSS custom properties)
+// ═══════════════════════════════════════════════════════════════════
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function chartTheme() {
+  return {
+    grid:     cssVar('--grid'),
+    tick:     cssVar('--tick'),
+    ttBg:     cssVar('--tt-bg'),
+    ttTitle:  cssVar('--tt-title'),
+    ttBody:   cssVar('--tt-body'),
+    ttBorder: cssVar('--tt-bdr'),
+  };
+}
+
+function updateChartsTheme() {
+  const t = chartTheme();
+  Object.values(charts).forEach(ch => {
+    ch.options.scales.x.grid.color        = t.grid;
+    ch.options.scales.x.ticks.color       = t.tick;
+    ch.options.scales.y.grid.color        = t.grid;
+    ch.options.scales.y.ticks.color       = t.tick;
+    ch.options.plugins.tooltip.backgroundColor = t.ttBg;
+    ch.options.plugins.tooltip.titleColor      = t.ttTitle;
+    ch.options.plugins.tooltip.bodyColor       = t.ttBody;
+    ch.options.plugins.tooltip.borderColor     = t.ttBorder;
+    ch.update('none');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Chart setup
+// ═══════════════════════════════════════════════════════════════════
+const MAX_PTS = 75;
+
+const SENSOR_CFG = {
+  co2:         { color: '#4CAF50', label: 'CO₂',        unit: 'ppm',  decimals: 0 },
+  temperature: { color: '#FF9800', label: 'Temperature', unit: '°C',   decimals: 1 },
+  humidity:    { color: '#2196F3', label: 'Humidity',    unit: '%RH',  decimals: 1 },
+  pressure:    { color: '#9C27B0', label: 'Pressure',    unit: 'hPa',  decimals: 1 },
+};
+
+const INFER_COLORS = [
+  '#4f6ef7','#22c55e','#f59e0b','#ef4444','#8b5cf6',
+  '#06b6d4','#ec4899','#84cc16','#f97316','#a78bfa',
+];
+
+const charts = {};
+
+function makeChart(id, cfg) {
+  const t = chartTheme();
+  const ctx = document.getElementById('chart-' + id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: cfg.label,
+        data: [],
+        borderColor: cfg.color,
+        backgroundColor: cfg.color + '22',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: t.ttBg,
+          titleColor: t.ttTitle,
+          bodyColor: t.ttBody,
+          borderColor: t.ttBorder,
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => `${ctx.parsed.y.toFixed(cfg.decimals)} ${cfg.unit}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: t.tick, maxTicksLimit: 5, maxRotation: 0 },
+          grid:  { color: t.grid },
+        },
+        y: {
+          ticks: { color: t.tick },
+          grid:  { color: t.grid },
+        }
+      }
+    }
+  });
+}
+
+Object.entries(SENSOR_CFG).forEach(([id, cfg]) => makeChart(id, cfg));
+
+// ═══════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════
+function fmtTime(iso) {
+  return new Date(iso).toTimeString().slice(0, 8);
+}
+
+function pushPoint(chartId, ts, value) {
+  const ch = charts[chartId];
+  if (!ch) return;
+  ch.data.labels.push(fmtTime(ts));
+  ch.data.datasets[0].data.push(value);
+  if (ch.data.labels.length > MAX_PTS) {
+    ch.data.labels.shift();
+    ch.data.datasets[0].data.shift();
+  }
+  ch.update('none');
+}
+
+function setVal(sensorId, value) {
+  const el = document.getElementById('val-' + sensorId);
+  if (!el || value == null) return;
+  const cfg = SENSOR_CFG[sensorId];
+  el.textContent = value.toFixed(cfg ? cfg.decimals : 1);
+}
+
+function toast(msg, type = 'ok') {
+  const area = document.getElementById('toast-area');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = msg;
+  area.appendChild(el);
+  setTimeout(() => el.remove(), 3600);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Load history on page load
+// ═══════════════════════════════════════════════════════════════════
+async function loadHistory() {
+  try {
+    const r = await fetch('/api/history');
+    const d = await r.json();
+    const tss = d.timestamps || [];
+    Object.keys(SENSOR_CFG).forEach(sid => {
+      const vals = (d.sensors || {})[sid] || [];
+      const ch = charts[sid];
+      if (!ch) return;
+      ch.data.labels = tss.map(fmtTime).slice(-MAX_PTS);
+      ch.data.datasets[0].data = vals.slice(-MAX_PTS);
+      ch.update('none');
+      if (vals.length) setVal(sid, vals[vals.length - 1]);
+    });
+  } catch(e) {
+    console.warn('History load failed', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SSE
+// ═══════════════════════════════════════════════════════════════════
+function connectSSE() {
+  const es = new EventSource('/events');
+
+  es.onmessage = e => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'sensor') {
+      Object.keys(SENSOR_CFG).forEach(sid => {
+        const v = (msg.sensors || {})[sid];
+        if (v != null) { pushPoint(sid, msg.ts, v); setVal(sid, v); }
+      });
+      document.getElementById('rec-count').textContent = msg.rec_n || 0;
+      document.getElementById('badge-rec').style.display = msg.rec ? 'inline-flex' : 'none';
+    }
+
+    if (msg.type === 'inference' || msg.inference) {
+      const res = msg.result || msg.inference;
+      if (res) renderInference(res);
+    }
+  };
+
+  es.onerror = () => setTimeout(connectSSE, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Inference rendering
+// ═══════════════════════════════════════════════════════════════════
+function renderInference(result) {
+  const box  = document.getElementById('infer-content');
+  const tsEl = document.getElementById('infer-ts');
+  if (!result) return;
+
+  const cls    = result.classification || {};
+  const keys   = Object.keys(cls).sort((a,b) => cls[b] - cls[a]);
+  const anomaly= result.anomaly;
+  const ts     = result.ts ? new Date(result.ts).toLocaleTimeString() : '';
+
+  tsEl.textContent = ts ? `Last: ${ts}` : '';
+
+  if (keys.length === 0) {
+    box.innerHTML = '<div class="infer-placeholder">No classification result.</div>';
+    return;
+  }
+
+  let html = '<div class="infer-row">';
+  keys.forEach((k, i) => {
+    const pct = Math.round((cls[k] || 0) * 100);
+    const col = INFER_COLORS[i % INFER_COLORS.length];
+    html += `
+      <div class="infer-class">
+        <span class="infer-class-name" title="${k}">${k}</span>
+        <div class="infer-bar-bg">
+          <div class="infer-bar" style="width:${pct}%;background:${col}"></div>
+        </div>
+        <span class="infer-pct">${pct}%</span>
+      </div>`;
+  });
+
+  if (anomaly != null) {
+    const aColor = anomaly > 0.7 ? 'var(--red)' : anomaly > 0.3 ? 'var(--amber)' : 'var(--green)';
+    html += `
+      <div class="anomaly-score">
+        <span class="anomaly-label"><i class="bi bi-exclamation-triangle"></i> Anomaly score</span>
+        <span class="anomaly-val" style="color:${aColor}">${anomaly.toFixed(3)}</span>
+      </div>`;
+  }
+
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Status badges
+// ═══════════════════════════════════════════════════════════════════
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const s = await r.json();
+    setBadge('badge-bridge', s.bridge ? 'ok' : 'warn', s.bridge ? 'Bridge' : 'Mock');
+    setBadge('badge-model',  s.model  ? 'ok' : 'err',  s.model  ? 'Model ✓' : 'No model');
+    if (s.inference) renderInference(s.inference);
+    document.getElementById('chk-auto').checked = s.auto_infer || false;
+  } catch(e) {}
+}
+
+function setBadge(id, cls, text) {
+  const el = document.getElementById(id);
+  el.className = `badge-pill ${cls}`;
+  el.innerHTML = `<span class="dot"></span> ${text}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Controls
+// ═══════════════════════════════════════════════════════════════════
+let _recording = false;
+
+function toggleRecord() { _recording ? stopRecord() : startRecord(); }
+
+async function startRecord() {
+  const label = document.getElementById('inp-label').value.trim() || 'idle';
+  const r = await fetch('/api/record/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label }),
+  });
+  if ((await r.json()).success) {
+    _recording = true;
+    const btn = document.getElementById('btn-rec');
+    btn.innerHTML = '⏹ Stop Recording';
+    btn.className = 'btn-rec stop';
+  }
+}
+
+async function stopRecord() {
+  const r = await fetch('/api/record/stop', { method: 'POST' });
+  const d = await r.json();
+  _recording = false;
+  const btn = document.getElementById('btn-rec');
+  btn.innerHTML = '<i class="bi bi-record-circle"></i> Start Recording';
+  btn.className = 'btn-rec start';
+  toast(`Recorded ${d.count} samples`, 'ok');
+}
+
+async function doUpload() {
+  toast('Uploading…', 'ok');
+  const r = await fetch('/api/upload', { method: 'POST' });
+  const d = await r.json();
+  d.success
+    ? toast(`✓ Uploaded ${d.count} samples as "${document.getElementById('inp-label').value}"`, 'ok')
+    : toast(`✗ Upload failed: ${d.error}`, 'err');
+}
+
+async function doInfer() {
+  const btn = document.getElementById('btn-infer');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  try {
+    const r = await fetch('/api/infer', { method: 'POST' });
+    const d = await r.json();
+    d.success ? (renderInference(d.result), toast('Inference complete', 'ok'))
+              : toast(`Inference: ${d.error}`, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Run Inference';
+  }
+}
+
+async function toggleAutoInfer(on) {
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auto_infer: on }),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Config modal
+// ═══════════════════════════════════════════════════════════════════
+async function showConfigModal() {
+  const r = await fetch('/api/config');
+  const d = await r.json();
+  document.getElementById('cfg-project').value  = d.ei_project_id || '';
+  document.getElementById('cfg-interval').value = d.interval_ms || 2000;
+  document.getElementById('cfg-window').value   = d.window_ms || 10000;
+  document.getElementById('cfg-apikey').placeholder =
+    d.ei_api_key_set ? '(key set — enter to replace)' : 'ei_…';
+  document.getElementById('cfg-modal').style.display = 'flex';
+}
+
+async function saveConfig() {
+  const body = {
+    ei_project_id: document.getElementById('cfg-project').value,
+    interval_ms:   parseInt(document.getElementById('cfg-interval').value, 10),
+    window_ms:     parseInt(document.getElementById('cfg-window').value, 10),
+  };
+  const key = document.getElementById('cfg-apikey').value.trim();
+  if (key) body.ei_api_key = key;
+
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  document.getElementById('cfg-modal').style.display = 'none';
+  toast('Config saved', 'ok');
+  refreshStatus();
+}
+
+document.getElementById('cfg-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('cfg-modal'))
+    document.getElementById('cfg-modal').style.display = 'none';
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Boot
+// ═══════════════════════════════════════════════════════════════════
+loadHistory();
+connectSSE();
+refreshStatus();
+setInterval(refreshStatus, 15000);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,17 @@
+profiles:
+  default:
+    platforms:
+      - platform: arduino:zephyr
+    libraries:
+      - Arduino_RouterBridge (0.2.2)
+      - ArduinoGraphics (1.1.4)
+      - Adafruit DPS310 (1.1.1)
+      - SparkFun SCD30 Arduino Library (1.0.20)
+      - dependency: Adafruit BusIO (1.16.1)
+      - dependency: Adafruit Unified Sensor (1.1.14)
+      - dependency: Arduino_RPClite (0.2.0)
+      - dependency: ArxContainer (0.7.0)
+      - dependency: ArxTypeTraits (0.3.2)
+      - dependency: DebugLog (0.8.4)
+      - dependency: MsgPack (0.4.2)
+default_profile: default
