@@ -53,6 +53,10 @@ float tempDPS  = 0.0f;
 unsigned long lastSend = 0;
 const unsigned long SEND_INTERVAL = 2000UL; // ms
 
+// LED matrix temperature tracking
+float lastDisplayTemp = -999.0f;
+const float TEMP_CHANGE_THRESHOLD = 0.1f; // update matrix if temp changes by this much
+
 // ── LED Matrix helper ──────────────────────────────────────────────────────
 void ledScroll(const char* text) {
     matrix.beginDraw();
@@ -100,6 +104,16 @@ void readSensors() {
     //         pm10 = m.mc_10p0;
     //     }
     // }
+}
+
+// ── Update LED matrix with current temperature (SCD-30) ──────────────────
+void updateTempDisplay() {
+    if (abs(tempSCD - lastDisplayTemp) >= TEMP_CHANGE_THRESHOLD) {
+        lastDisplayTemp = tempSCD;
+        // Format as e.g. "23.4C"
+        String msg = String(tempSCD, 1) + "C";
+        ledScroll(msg.c_str());
+    }
 }
 
 // ── Build and send sensor payload ─────────────────────────────────────────
@@ -166,6 +180,7 @@ void loop() {
         lastSend = now;
         readSensors();
         pushSensorData();
+        updateTempDisplay();
     }
     delay(50);
 }
